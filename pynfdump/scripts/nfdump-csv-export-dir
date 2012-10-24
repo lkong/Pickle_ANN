@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+import os
+import sys
+import csv
+
+import pynfdump
+import cymruwhois
+
+cols = 'first srcip srcport dstip dstport prot packets bytes flags asn cc'.split()
+whois = cymruwhois.Client(memcache_host='lois:11211')
+
+def get_info(ip,info_cache={}):
+    r = info_cache.get(ip)
+    if r:
+        return r
+    info = whois.lookup(ip)
+    info_cache[ip]=info
+    return info
+    
+
+def export_file(source, dest):
+    try :
+        result = pynfdump.search_file(source, 'not src net 169.226.0.0/16')
+    except Exception, e:
+        print e
+        return
+
+    new = not os.path.exists(dest)
+
+    f = open(dest,'a')
+    w = csv.writer(f)
+
+    #if new:
+    #    w.writerow(cols)
+
+
+    for rec in result:
+        info = get_info(str(rec['srcip']))
+        rec['asn'] = info.asn
+        rec['cc']  = info.cc
+        row = [rec.get(c) for c in cols]
+        w.writerow(row)
+
+    f.close()
+
+def touch(fn):
+    f = open(fn,'w')
+    f.close()
+
+def fn_to_output(f):
+    "convert nfcapd.200810161045 into nfcapd.20081016.txt"
+    #    0123456789012345678
+    #f = nfcapd.200810161045
+    #o = nfcapd.20081016
+    o = f[:15] + '.txt'
+    return o
+
+def main(src, dst):
+    files = [x for x in os.listdir(src) if x.startswith("nfcapd.")]
+    done = set(os.listdir(os.path.join(dst, 'done')))
+    for f in files:
+        if (f + '.done') in done:
+            continue
+        print 'doing %s ...' % f
+        o = fn_to_output(f)
+        sf = os.path.join(src, f)
+        df = os.path.join(dst, o)
+        export_file(sf, df)
+
+        sfd = os.path.join(dst, 'done',f + '.done')
+        touch(sfd)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print "Usage: %s source_dir dest_dir" % sys.argv[0]
+        sys.exit(1)
+
+    main(sys.argv[1], sys.argv[2])
