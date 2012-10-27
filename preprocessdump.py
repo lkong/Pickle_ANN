@@ -3,6 +3,7 @@ import os
 import getopt
 import subprocess
 import socket
+import cPickle as pickle
 class datasource:
     ip_list=set()
     susip_list=set()
@@ -11,18 +12,92 @@ class datasource:
         cmd=[]
         #Try to run something like this:
         #nfdump -r /data/nfdump/nfcapd.current  -n 0 -s as
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","as"])
+        print "try to get normalize base:[0/6]"
+        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bytes"])
         for record in runProcess(cmd):
             if len(record)>2:
                 record_array=record.split('|')
-                record_dict=dict({"duration":long(record_array[3])-long(record_array[1]),"flow":record_array[7],"packets":record_array[8],"bytes":record_array[9],"pps":record_array[10],"bps":record_array[11],"bpp":record_array[12].replace('\n','')})
-                return record_dict
+                record_dict=dict({"bytes":record_array[12]})
+        cmd=[]
+        print "try to get normalize base:[1/6]"
+        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/packets"])
+        for record in runProcess(cmd):
+            if len(record)>2:
+                record_array=record.split('|')
+                record_dict["packets"]=record_array[11]
+        cmd=[]
+        print "try to get normalize base:[2/6]"
+        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/flows"])
+        for record in runProcess(cmd):
+            if len(record)>2:
+                record_array=record.split('|')
+                record_dict["flow"]=record_array[10]
+        cmd=[]
+        print "try to get normalize base:[3/6]"
+        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bps"])
+        for record in runProcess(cmd):
+            if len(record)>2:
+                record_array=record.split('|')
+                record_dict["bps"]=record_array[14]
+        cmd=[]
+        print "try to get normalize base:[4/6]"
+        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/pps"])
+        for record in runProcess(cmd):
+            if len(record)>2:
+                record_array=record.split('|')
+                record_dict["pps"]=record_array[13]
+        cmd=[]
+        print "try to get normalize base:[5/6]"
+        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bpp"])
+        for record in runProcess(cmd):
+            if len(record)>2:
+                record_array=record.split('|')
+                record_dict["bpp"]=record_array[15].replace('\n','')
+        #secons in a day
+        print "try to get normalize base:[6/6]"
+        record_dict["duration"]=86400
+        self.base=record_dict
+        print record_dict
+        return record_dict
+    def dump_sus_to_file(self,filename):
+        output=open(filename,'wb')
+        dict_list=[]
+        for line in self.get_sus_dict():
+            dict_list.append(line)
+        pickle.dump(dict_list,output)
+        output.close()
+    def dump_base_to_file(self,filename):
+        output=open(filename+"_base",'wb')
+        pickle.dump(self.base,output)
+        output.close()
+    def dump_non_sus_to_file(self,filename):
+        output=open(filename,'wb')
+        dict_list=[]
+        for line in self.get_non_sus_dict(100):
+            dict_list.append(line)
+        pickle.dump(dict_list,output)
+        output.close()
+    def load_dump_from_file(self,filename):
+        inputfile=open(filename,'r')
+        dict_list=[]
+        dict_list=pickle.load(inputfile)
+        inputfile.close()
+        return dict_list
+    def load_base_from_file(self,filename):
+        inputfile=open(filename+'_base','r')
+        self.base=pickle.load(inputfile)
+        inputfile.close()
+        return self.base
     def __init__(self,sourcefile):
-        self.source_file=sourcefile
-        self.get_ipaddress_list()
-        print "init ip list created"
-        self.get_bt_user("tracker_ip_list")
-        print "sus ip list created"
+        try:
+            print "try loading dump file"
+            self.source_file=sourcefile
+            self.get_ipaddress_list()
+            print "init ip list created"
+            self.get_bt_user("tracker_ip_list")
+            print "sus ip list created"
+        except IOError:
+            print " no good loading data file"
     def get_bt_user(self,tracker_ip_list):
         cmd=[]
         cmd.extend(['nfdump','-R',self.source_file,'-f',tracker_ip_list,'-q','-o','fmt:%sa'])
@@ -103,6 +178,9 @@ def loader(argv=sys.argv):
     #get_input_per_ipaddress(args[0],args[1])
     ds=datasource(args[0])
     ds.get_normalize_base()
+    ds.dump_non_sus_to_file(args[1]+"_non_sus")
+    ds.dump_sus_to_file(args[1]+"_sus")
+    ds.dump_base_to_file(args[1])
 def runProcess(exe):
     p = subprocess.Popen(exe, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while(True):

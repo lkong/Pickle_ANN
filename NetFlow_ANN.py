@@ -26,22 +26,28 @@ class NetFlow_ANN:
         #print source
         #print "=========================="
         #print base
-        #print (float(source["duration"])/float(base["duration"]),float(source["flow"])/float(base["flow"]),float(source["packets"])/float(base["packets"]),float(source["bytes"])/float(base["bytes"]),float(source["pps"])/float(base["pps"]),float(source["bpp"])/float(base["bpp"]),float(source["bps"])/float(base["bps"]))
         return [float(source["duration"])/float(base["duration"]),float(source["flow"])/float(base["flow"]),float(source["packets"])/float(base["packets"]),float(source["bytes"])/float(base["bytes"]),float(source["pps"])/float(base["pps"]),float(source["bpp"])/float(base["bpp"]),float(source["bps"])/float(base["bps"])]
-    def build_data_set(self,sourcefile,sus_example_count=10,non_sus_example_count=100):
+    def build_data_set(self,sourcefile,sus_example_count=100,non_sus_example_count=100):
+        self.source_file=sourcefile
         self.data_source=preprocessdump.datasource(sourcefile)
-        self.normalize_base=self.data_source.get_normalize_base()
-        self.data_set=ClassificationDataSet(7,1,class_labels=['normal','downloader'])
+        self.normalize_base=self.data_source.load_base_from_file(sourcefile)
+        self.data_set=SupervisedDataSet(7,1)
         count=0
-        for sus_example in self.data_source.get_sus_dict(sus_example_count):
+        first=True
+        #for sus_example in self.data_source.get_sus_dict(sus_example_count):
+        for sus_example in self.data_source.load_dump_from_file(sourcefile+"_non_sus"):
             self.data_set.appendLinked(self.normalize_data(sus_example,self.normalize_base) , [1])
+            if first:
+                print "data example="+str(sus_example)
+                first=False
             if count*100/sus_example_count%10==0:
                 progress=count*100/sus_example_count
                 print '\r[{0}] {1}%'.format('#'*(progress/10), progress),
             count+=1
         print "\n %d suspicious examples added" % count
         count=0
-        for normal_example in self.data_source.get_non_sus_dict(non_sus_example_count):
+        for normal_example in self.data_source.load_dump_from_file(sourcefile+"_sus"):
+        #for normal_example in self.data_source.get_non_sus_dict(non_sus_example_count):
             self.data_set.appendLinked(self.normalize_data(normal_example,self.normalize_base) , [0])
             if count*100/non_sus_example_count%10==0:
                 progress=count*100/non_sus_example_count
@@ -52,16 +58,18 @@ class NetFlow_ANN:
     def training(self):
         #trainer=BackpropTrainer(self.net,self.data_set,verbose=True)
         trainer=BackpropTrainer(self.net,self.data_set)
-        #trainer.trainUntilConvergence()
-        trainer.trainEpochs(50)
-    def random_non_p2p_test(self,limit=10):
-        for normal_example in self.data_source.get_non_sus_dict(limit):
+        trainer.trainUntilConvergence()
+        #trainer.trainEpochs(10000)
+    def set_datasource(self,sourcefile):
+        self.data_source=sourcefile
+    def random_non_p2p_test(self,sourcefile,limit=10):
+        for normal_example in self.data_source.load_dump_from_file(sourcefile+"_sus"):
             validation_input=self.normalize_data(normal_example,self.normalize_base)
             result=self.net.activate(validation_input)
             print result
         print "validation over"
-    def random_p2p_test(self,limit=10):
-        for sus_example in self.data_source.get_sus_dict(limit):
+    def random_p2p_test(self,sourcefile,limit=10):
+        for sus_example in self.data_source.load_dump_from_file(sourcefile+"_sus"):
             validation_input=self.normalize_data(sus_example,self.normalize_base)
             result=self.net.activate(validation_input)
             print result
@@ -85,10 +93,10 @@ def loader(argv=sys.argv):
     ANN=NetFlow_ANN()
     ANN.build_data_set(args[0],100,50)
     ANN.training()
-    print "valid non p2p"
-    ANN.random_non_p2p_test()
-    print "valid p2p"
-    ANN.random_p2p_test()
+    #print "valid non p2p"
+    #ANN.random_non_p2p_test()
+    #print "valid p2p"
+    #ANN.random_p2p_test()
     NetworkWriter.writeToFile(ANN.net,'pickled_ANN')
 if __name__=="__main__":
     sys.exit(loader())
