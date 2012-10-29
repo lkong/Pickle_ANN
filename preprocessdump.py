@@ -92,10 +92,10 @@ class datasource:
         try:
             print "try loading dump file"
             self.source_file=sourcefile
-            self.get_ipaddress_list()
-            print "init ip list created"
-            self.get_bt_user("tracker_ip_list")
-            print "sus ip list created"
+            #self.get_ipaddress_list()
+            #print "init ip list created"
+            #self.get_bt_user("tracker_ip_list")
+            #print "sus ip list created"
         except IOError:
             print " no good loading data file"
     def get_bt_user(self,tracker_ip_list):
@@ -128,15 +128,24 @@ class datasource:
         # process arguments
         #for arg in args:
         #output a list of ip address to the output file
-        tempString ="nfdump -R "+self.source_file + " -o fmt:%sa >> tempfile"
-        os.system(tempString)
-        print "ip list dumped to tempfile"
-        tempfile=open("tempfile",'r')
-        for line in tempfile:
-            if line.find(".",line.find(".")+1)-line.find(".")==4:
-                if line not in self.ip_list: # not a duplicate
-                        self.ip_list.add(line)
-        os.remove("tempfile")
+        #tempString ="nfdump -R "+self.source_file + " -o fmt:%sa >> tempfile"
+        #os.system(tempString)
+        #print "ip list dumped to tempfile"
+        #tempfile=open("tempfile",'r')
+        #for line in tempfile:
+        #    if line.find(".",line.find(".")+1)-line.find(".")==4:
+        #        if line not in self.ip_list: # not a duplicate
+        #                self.ip_list.add(line)
+        #try:
+        #    os.remove("tempfile")
+        #except IOError:
+        #    print "remove tempfile failed"
+        #try to execute nfdump -R /data/nfdump/2012/10/17/20 -a -A srcip -o fmt:%sa -n 1000 -q
+        cmd=[]
+        cmd.extend(["nfdump","-q","-R",self.source_file,'-a','-A','srcip',"-o",'fmt:%sa','-n','1000'])
+        for record in runProcess(cmd):
+            if len(record)>2:
+                self.ip_list.add(record.replace('\n',''))
     def get_input_per_ipaddress(self,ip):
         #sourcePath=self.source_file[:self.source_file.rfind('/')+1]
         #dumper=pynfdump.Dumper(sourcePath)
@@ -177,6 +186,10 @@ def loader(argv=sys.argv):
     #remove_redundant_ip("temp",args[1])
     #get_input_per_ipaddress(args[0],args[1])
     ds=datasource(args[0])
+    ds.get_ipaddress_list()
+    print "init ip list created"
+    ds.get_bt_user("tracker_ip_list")
+    print "sus ip list created"
     ds.get_normalize_base()
     ds.dump_non_sus_to_file(args[1]+"_non_sus")
     ds.dump_sus_to_file(args[1]+"_sus")

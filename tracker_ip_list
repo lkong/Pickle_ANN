@@ -14,12 +14,14 @@ or dst ip 208.95.173.194
 or dst ip 199.59.241.181
 or dst ip 89.185.229.95
 or dst ip 91.111.62.197
-or dst ip 108.162.193.85
+or dst ip 108.162.193.185
 or dst ip 178.239.54.130
-or dst ip 173.245.76.53
+or dst ip 176.31.72.164
+or dst ip 50.17.195.149
 or dst ip 69.43.161.178
 or dst ip 89.107.187.165
 or dst ip 218.145.160.136
+or dst ip 141.8.225.13
 or dst ip 61.55.142.129
 or dst ip 208.87.35.104
 or dst ip 61.175.209.125
@@ -41,5 +43,4 @@ or dst ip 70.85.137.39
 or dst ip 94.185.80.154
 or dst ip 91.224.160.192
 or dst ip 121.128.134.30
-or dst ip 108.61.4.52
-or dst ip 108.162.193.185
+or dst ip 108.162.193.85
