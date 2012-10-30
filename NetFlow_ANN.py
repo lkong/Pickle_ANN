@@ -18,6 +18,14 @@ from random import randint
 class NetFlow_ANN:
     def __init__(self):
         print "start a new instance"
+        self.loaded=False
+        self.has_data_source=False
+        try:
+            self.net=NetworkReader.readFrom('pickled_ANN')
+            print "ANN has been found from an ash jar"
+            self.loaded=True
+        except IOError:
+            print "ash jar is empty, use train() to start a new ANN"
     def normalize_data(self, source, base):
         #print source
         #print "=========================="
@@ -32,6 +40,7 @@ class NetFlow_ANN:
     def build_data_set(self,sourcefile,sus_example_count=100,non_sus_example_count=100):
         self.source_file=sourcefile
         self.data_source=preprocessdump.datasource(sourcefile)
+        self.has_data_source=True
         self.normalize_base=self.data_source.load_base_from_file(sourcefile)
         #self.data_set=SupervisedDataSet(5,1)
         self.data_set=ClassificationDataSet(5,1,nb_classes=2,class_labels=['good','p2p'])
@@ -69,10 +78,7 @@ class NetFlow_ANN:
         valid_set._convertToOneOfMany()
         train_set._convertToOneOfMany()
         print train_set.calculateStatistics()
-        try:
-            self.net=NetworkReader.readFrom('pickled_ANN')
-            print "ANN has been found from an ash jar"
-        except IOError:
+        if not self.loaded:
             #self.net=buildNetwork(6,20,1,outclass=SoftmaxLayer)
             self.net=buildNetwork(train_set.indim,train_set.outdim,recurrent=False)
             self.net.name='PieBrain'
@@ -89,34 +95,23 @@ class NetFlow_ANN:
         print "get = "+str(self.net.activate(valid_set['input'][ins]))
     def set_datasource(self,sourcefile):
         self.data_source=sourcefile
-    def random_non_p2p_test(self,sourcefile,limit=10,Verbose=False):
-        count=0
-        for normal_example in self.data_source.load_dump_from_file(sourcefile+"_non_sus"):
-            validation_input=self.normalize_data(normal_example,self.normalize_base)
-            result=self.net.activate(validation_input)
-            if count==limit:
+    def classifier(self,input,count):
+        #get (count) number of ips from data source
+        finished=0
+        result=dict()
+        for example in input:
+            if finished==count:
                 return
-            count+=1
-            if Verbose==True:
-                print "base "+str(self.normalize_base)
-                print "current "+ str(normal_example)
-                print validation_input
-                print result
-        print "validation over"
-    def random_p2p_test(self,sourcefile,limit=10,Verbose=False):
-        count=0
-        for sus_example in self.data_source.load_dump_from_file(sourcefile+"_sus"):
-            validation_input=self.normalize_data(sus_example,self.normalize_base)
-            result=self.net.activate(validation_input)
-            if count==limit:
-                return
-            count+=1
-            if Verbose==True:
-                print "base "+str(self.normalize_base)
-                print "current "+ str(sus_example)
-                print validation_input
-                print result
-        print "validation over"
+            print example
+            input_data=self.normalize_data(example,self.normalize_base)
+            normal,sus= self.net.activate(input_data)
+            likelyhood=(sus-normal)/0.5
+            #print '{:d} / {:d}'.format(finished,count)
+            print str(finished)+"/"+str(count)
+            print example['ip']+":"+ str(likelyhood)
+            result[example['ip']]=likelyhood
+            finished+=1
+        return result
 def loader(argv=sys.argv):
     """ doc is here
     """
@@ -134,7 +129,7 @@ def loader(argv=sys.argv):
             print "input format:'input nfdumpfile' 'output iplist'"
             sys.exit(0)
     ANN=NetFlow_ANN()
-    ANN.build_data_set(args[0],100,50)
+    ANN.build_data_set(args[0],100,2000)
     ANN.training()
     NetworkWriter.writeToFile(ANN.net,'pickled_ANN')
 if __name__=="__main__":

@@ -4,61 +4,72 @@ import getopt
 import subprocess
 import socket
 import cPickle as pickle
+"""This is a wrapper for nfdump
+    It servers dual purpose:
+    1 as a standalone dumper, to preprocess nfdump data into other files
+    2 as a running instance, to read its own dump and provide data to other objects
+"""
 class datasource:
     ip_list=set()
     susip_list=set()
-    source_file=""
+    source_file=''
+    target_file=''
     def get_normalize_base(self):
-        cmd=[]
-        #Try to run something like this:
-        #nfdump -r /data/nfdump/nfcapd.current  -n 0 -s as
-        print "try to get normalize base:[0/6]"
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bytes"])
-        for record in runProcess(cmd):
-            if len(record)>2:
-                record_array=record.split('|')
-                record_dict=dict({"bytes":record_array[12]})
-        cmd=[]
-        print "try to get normalize base:[1/6]"
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/packets"])
-        for record in runProcess(cmd):
-            if len(record)>2:
-                record_array=record.split('|')
-                record_dict["packets"]=record_array[11]
-        cmd=[]
-        print "try to get normalize base:[2/6]"
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/flows"])
-        for record in runProcess(cmd):
-            if len(record)>2:
-                record_array=record.split('|')
-                record_dict["flow"]=record_array[10]
-        cmd=[]
-        print "try to get normalize base:[3/6]"
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bps"])
-        for record in runProcess(cmd):
-            if len(record)>2:
-                record_array=record.split('|')
-                record_dict["bps"]=record_array[14]
-        cmd=[]
-        print "try to get normalize base:[4/6]"
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/pps"])
-        for record in runProcess(cmd):
-            if len(record)>2:
-                record_array=record.split('|')
-                record_dict["pps"]=record_array[13]
-        cmd=[]
-        print "try to get normalize base:[5/6]"
-        cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bpp"])
-        for record in runProcess(cmd):
-            if len(record)>2:
-                record_array=record.split('|')
-                record_dict["bpp"]=record_array[15].replace('\n','')
-        #secons in a day
-        print "try to get normalize base:[6/6]"
-        record_dict["duration"]=86400
-        self.base=record_dict
-        print record_dict
-        return record_dict
+        try:
+            self.load_base_from_file(self.target_file)
+            print "recovered base from dump file"
+            return self.base
+        except IOError:
+            cmd=[]
+            #Try to run something like this:
+            #nfdump -r /data/nfdump/nfcapd.current  -n 0 -s as
+            print "try to get normalize base:[0/6]"
+            cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bytes"])
+            for record in runProcess(cmd):
+                if len(record)>2:
+                    record_array=record.split('|')
+                    record_dict=dict({"bytes":record_array[12]})
+            cmd=[]
+            print "try to get normalize base:[1/6]"
+            cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/packets"])
+            for record in runProcess(cmd):
+                if len(record)>2:
+                    record_array=record.split('|')
+                    record_dict["packets"]=record_array[11]
+            cmd=[]
+            print "try to get normalize base:[2/6]"
+            cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/flows"])
+            for record in runProcess(cmd):
+                if len(record)>2:
+                    record_array=record.split('|')
+                    record_dict["flow"]=record_array[10]
+            cmd=[]
+            print "try to get normalize base:[3/6]"
+            cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bps"])
+            for record in runProcess(cmd):
+                if len(record)>2:
+                    record_array=record.split('|')
+                    record_dict["bps"]=record_array[14]
+            cmd=[]
+            print "try to get normalize base:[4/6]"
+            cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/pps"])
+            for record in runProcess(cmd):
+                if len(record)>2:
+                    record_array=record.split('|')
+                    record_dict["pps"]=record_array[13]
+            cmd=[]
+            print "try to get normalize base:[5/6]"
+            cmd.extend(["nfdump","-q","-R",self.source_file,"-n","1","-o","pipe","-s","ip/bpp"])
+            for record in runProcess(cmd):
+                if len(record)>2:
+                    record_array=record.split('|')
+                    record_dict["bpp"]=record_array[15].replace('\n','')
+            #secons in a day
+            print "try to get normalize base:[6/6]"
+            record_dict["duration"]=86400
+            self.base=record_dict
+            self.dump_base_to_file(self.target_file)
+            return record_dict
     def dump_sus_to_file(self,filename):
         output=open(filename,'wb')
         dict_list=[]
@@ -78,19 +89,26 @@ class datasource:
         pickle.dump(dict_list,output)
         output.close()
     def load_dump_from_file(self,filename):
-        inputfile=open(filename,'r')
-        dict_list=[]
-        dict_list=pickle.load(inputfile)
-        inputfile.close()
-        return dict_list
+        print "loading dump from "+filename
+        try:
+            inputfile=open(filename,'r')
+            dict_list=[]
+            dict_list=pickle.load(inputfile)
+            inputfile.close()
+            return dict_list
+        except IOError:
+            raise
     def load_base_from_file(self,filename):
-        inputfile=open(filename+'_base','r')
-        self.base=pickle.load(inputfile)
-        inputfile.close()
-        return self.base
+        try:
+            inputfile=open(filename+'_base','r')
+            self.base=pickle.load(inputfile)
+            inputfile.close()
+            return self.base
+        except IOError:
+            raise
     def __init__(self,sourcefile):
         try:
-            print "try loading dump file"
+            #print "try loading dump file"
             self.source_file=sourcefile
             #self.get_ipaddress_list()
             #print "init ip list created"
@@ -142,7 +160,7 @@ class datasource:
         #    print "remove tempfile failed"
         #try to execute nfdump -R /data/nfdump/2012/10/17/20 -a -A srcip -o fmt:%sa -n 1000 -q
         cmd=[]
-        cmd.extend(["nfdump","-q","-R",self.source_file,'-a','-A','srcip',"-o",'fmt:%sa','-n','1000'])
+        cmd.extend(["nfdump","-q","-R",self.source_file,'-a','-A','srcip',"-o",'fmt:%sa'])
         for record in runProcess(cmd):
             if len(record)>2:
                 self.ip_list.add(record.replace('\n',''))
@@ -165,7 +183,8 @@ class datasource:
                 if len(record)>2:
                     record_array=record.split('|')
                     record_dict=dict({"ip":ip,"duration":long(record_array[3])-long(record_array[1]),"flow":record_array[7],"packets":record_array[8],"bytes":record_array[9],"pps":record_array[10],"bps":record_array[11],"bpp":record_array[12].replace('\n','')})
-                    yield record_dict
+                    #yield record_dict
+                    return record_dict
 def loader(argv=sys.argv):
     """ doc is here
     """

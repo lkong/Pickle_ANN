@@ -19,12 +19,12 @@
 			<FullConnection class="pybrain.structure.connections.full.FullConnection" name="FullConnection-4">
 				<inmod val="bias"/>
 				<outmod val="out"/>
-				<Parameters>[0.42701232978935605, 0.55628286871308796]</Parameters>
+				<Parameters>[0.50962012739242535, 0.47313964715599377]</Parameters>
 			</FullConnection>
 			<FullConnection class="pybrain.structure.connections.full.FullConnection" name="FullConnection-3">
 				<inmod val="in"/>
 				<outmod val="out"/>
-				<Parameters>[-0.5850668917213464, -0.063514509929359766, 0.47059331206760768, -0.13271929186654477, 0.15219845040195462, 0.5904572242359849, 0.059459436957170195, -0.45743896334970463, 0.17208101085640759, -0.15457666324933222]</Parameters>
+				<Parameters>[-0.34008909785722385, -0.22316652044450855, 0.39076142237638489, -0.50086118515061429, 0.018923551957437678, 0.34590092469320372, 0.22239925420390977, -0.3771361910826822, 0.55064432934265362, -0.01915382804057391]</Parameters>
 			</FullConnection>
 		</Connections>
 	</Network>
