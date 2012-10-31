@@ -21,6 +21,9 @@ def loader(argv=sys.argv):
     input.extend(ANN.data_source.load_dump_from_file(args[0]+'_non_sus'))
     result=ANN.classifier(input,args[1])
     result=OrderedDict(sorted(result.items(), key=lambda t: t[1]))
+    items=result.items()
+    items.reverse()
+    result=OrderedDict(items)
     outputfile=open(args[2],'w')
     for key,value in result.items():
         outputfile.write(str(key)+' : '+str(value)+'\n')

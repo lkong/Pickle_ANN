@@ -105,7 +105,7 @@ class NetFlow_ANN:
             print example
             input_data=self.normalize_data(example,self.normalize_base)
             normal,sus= self.net.activate(input_data)
-            likelyhood=(sus-normal)/0.5
+            likelyhood=sus-normal
             #print '{:d} / {:d}'.format(finished,count)
             print str(finished)+"/"+str(count)
             print example['ip']+":"+ str(likelyhood)
